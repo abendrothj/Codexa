@@ -1,4 +1,5 @@
 """File parsers for different document types."""
+
 from typing import Dict, Any, Protocol
 import os
 from pathlib import Path

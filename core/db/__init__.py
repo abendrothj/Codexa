@@ -1,4 +1,5 @@
 """Vector database layer using ChromaDB for semantic search."""
+
 from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings
@@ -47,9 +48,7 @@ class VectorDatabase:
         embedding = self.embedding_model.encode(text, convert_to_tensor=False)
         return embedding.tolist()
 
-    def index_document(
-        self, content: str, file_path: str, metadata: Dict[str, Any]
-    ) -> str:
+    def index_document(self, content: str, file_path: str, metadata: Dict[str, Any]) -> str:
         """
         Index a document in the vector database.
 
@@ -83,9 +82,7 @@ class VectorDatabase:
 
         return doc_id
 
-    def index_documents(
-        self, documents: List[Dict[str, Any]]
-    ) -> List[str]:
+    def index_documents(self, documents: List[Dict[str, Any]]) -> List[str]:
         """
         Index multiple documents.
 
@@ -135,9 +132,9 @@ class VectorDatabase:
                         "document_id": doc_id,
                         "content": results["documents"][0][idx],
                         "metadata": results["metadatas"][0][idx] if results["metadatas"] else {},
-                        "score": 1.0 - results["distances"][0][idx]
-                        if results["distances"]
-                        else 0.0,
+                        "score": (
+                            1.0 - results["distances"][0][idx] if results["distances"] else 0.0
+                        ),
                     }
                 )
 

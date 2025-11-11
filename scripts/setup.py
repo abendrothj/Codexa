@@ -37,20 +37,14 @@ def main() -> None:
     print(f"✓ Python {sys.version_info.major}.{sys.version_info.minor} detected")
 
     # Install dependencies
-    if not run_command(
-        "pip install -r requirements.txt",
-        "Installing dependencies..."
-    ):
+    if not run_command("pip install -r requirements.txt", "Installing dependencies..."):
         print("Failed to install dependencies")
         sys.exit(1)
 
     print("\n✓ Dependencies installed successfully")
 
     # Install development dependencies
-    if not run_command(
-        'pip install -e ".[dev]"',
-        "Installing development dependencies..."
-    ):
+    if not run_command('pip install -e ".[dev]"', "Installing development dependencies..."):
         print("Warning: Failed to install development dependencies")
 
     # Create necessary directories

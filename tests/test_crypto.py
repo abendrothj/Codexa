@@ -1,4 +1,5 @@
 """Tests for encryption functionality."""
+
 import pytest
 from core.crypto import AESEncryption
 

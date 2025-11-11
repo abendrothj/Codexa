@@ -1,4 +1,5 @@
 """FastAPI application for Codexa knowledge vault."""
+
 from typing import Optional
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware

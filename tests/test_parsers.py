@@ -1,4 +1,5 @@
 """Tests for file parsers."""
+
 import pytest
 import tempfile
 import os
@@ -9,7 +10,7 @@ def test_markdown_parser() -> None:
     """Test Markdown file parsing."""
     parser = MarkdownParser()
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write("# Test Document\n\nThis is a test.")
         temp_path = f.name
 
@@ -36,7 +37,7 @@ author: Test Author
 Content here.
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(content)
         temp_path = f.name
 
@@ -64,7 +65,7 @@ class TestClass:
     pass
 '''
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
         temp_path = f.name
 
@@ -84,7 +85,7 @@ def test_python_parser_invalid_syntax() -> None:
 
     code = "def invalid syntax here"
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
         temp_path = f.name
 
@@ -117,7 +118,7 @@ def test_parse_file_integration() -> None:
     """Test parsing files through registry."""
     registry = ParserRegistry()
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write("# Test\n\nContent")
         temp_path = f.name
 

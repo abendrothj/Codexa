@@ -1,15 +1,19 @@
 """Tests for API endpoints."""
+
 import pytest
 from fastapi.testclient import TestClient
-from core.api import app
 import tempfile
 import os
 
 
 @pytest.fixture
 def client() -> TestClient:
-    """Create test client."""
-    return TestClient(app)
+    """Create test client with proper lifecycle."""
+    from core.api import app
+
+    # Use context manager to ensure lifespan is triggered
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def test_root_endpoint(client: TestClient) -> None:
@@ -31,15 +35,12 @@ def test_health_check(client: TestClient) -> None:
 def test_index_endpoint(client: TestClient) -> None:
     """Test document indexing."""
     # Create temporary test file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write("# Test Document\n\nThis is test content.")
         temp_path = f.name
 
     try:
-        response = client.post(
-            "/index",
-            json={"file_paths": [temp_path], "encrypt": False}
-        )
+        response = client.post("/index", json={"file_paths": [temp_path], "encrypt": False})
         assert response.status_code == 201
         data = response.json()
         assert data["indexed_count"] == 1
@@ -52,8 +53,7 @@ def test_index_endpoint(client: TestClient) -> None:
 def test_index_nonexistent_file(client: TestClient) -> None:
     """Test indexing non-existent file."""
     response = client.post(
-        "/index",
-        json={"file_paths": ["/nonexistent/file.md"], "encrypt": False}
+        "/index", json={"file_paths": ["/nonexistent/file.md"], "encrypt": False}
     )
     assert response.status_code == 201
     data = response.json()
@@ -64,22 +64,16 @@ def test_index_nonexistent_file(client: TestClient) -> None:
 def test_search_endpoint(client: TestClient) -> None:
     """Test search endpoint."""
     # First, index a document
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write("# Machine Learning\n\nThis document is about neural networks and AI.")
         temp_path = f.name
 
     try:
         # Index the document
-        client.post(
-            "/index",
-            json={"file_paths": [temp_path], "encrypt": False}
-        )
+        client.post("/index", json={"file_paths": [temp_path], "encrypt": False})
 
         # Search for it
-        response = client.post(
-            "/search",
-            json={"query": "artificial intelligence", "top_k": 5}
-        )
+        response = client.post("/search", json={"query": "artificial intelligence", "top_k": 5})
         assert response.status_code == 200
         data = response.json()
         assert data["query"] == "artificial intelligence"
@@ -91,10 +85,7 @@ def test_search_endpoint(client: TestClient) -> None:
 
 def test_search_with_file_type_filter(client: TestClient) -> None:
     """Test search with file type filter."""
-    response = client.post(
-        "/search",
-        json={"query": "test query", "top_k": 5, "file_type": "py"}
-    )
+    response = client.post("/search", json={"query": "test query", "top_k": 5, "file_type": "py"})
     assert response.status_code == 200
     data = response.json()
     assert data["query"] == "test query"
@@ -102,23 +93,17 @@ def test_search_with_file_type_filter(client: TestClient) -> None:
 
 def test_encrypted_indexing_and_search(client: TestClient) -> None:
     """Test indexing and searching encrypted content."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write("# Secret Document\n\nThis is sensitive information.")
         temp_path = f.name
 
     try:
         # Index with encryption
-        response = client.post(
-            "/index",
-            json={"file_paths": [temp_path], "encrypt": True}
-        )
+        response = client.post("/index", json={"file_paths": [temp_path], "encrypt": True})
         assert response.status_code == 201
 
         # Search should still work (decryption happens during search)
-        response = client.post(
-            "/search",
-            json={"query": "sensitive information", "top_k": 5}
-        )
+        response = client.post("/search", json={"query": "sensitive information", "top_k": 5})
         assert response.status_code == 200
     finally:
         os.unlink(temp_path)

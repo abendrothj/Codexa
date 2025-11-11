@@ -1,4 +1,5 @@
 """AES-256 encryption utilities for securing document content."""
+
 from typing import Tuple
 import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -49,9 +50,7 @@ class AESEncryption:
         padded_data = padder.update(plaintext.encode()) + padder.finalize()
 
         # Encrypt
-        cipher = Cipher(
-            algorithms.AES(self.key), modes.CBC(iv), backend=default_backend()
-        )
+        cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv), backend=default_backend())
         encryptor = cipher.encryptor()
         ciphertext = encryptor.update(padded_data) + encryptor.finalize()
 
@@ -69,9 +68,7 @@ class AESEncryption:
             Decrypted plaintext
         """
         # Decrypt
-        cipher = Cipher(
-            algorithms.AES(self.key), modes.CBC(iv), backend=default_backend()
-        )
+        cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv), backend=default_backend())
         decryptor = cipher.decryptor()
         padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
 

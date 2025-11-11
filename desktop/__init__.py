@@ -1,4 +1,5 @@
 """Codexa Desktop GUI application."""
+
 import sys
 from typing import Optional, List
 from PySide6.QtWidgets import (
