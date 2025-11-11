@@ -33,6 +33,8 @@ Or install in development mode:
 pip install -e ".[dev]"
 ```
 
+**Note**: On first run, the SentenceTransformer model (`all-MiniLM-L6-v2`) will be downloaded from HuggingFace (~80MB). This requires an internet connection and may take a few minutes.
+
 ## Running the Application
 
 ### Start the API Server
