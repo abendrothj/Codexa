@@ -1,11 +1,13 @@
 """FastAPI application for Codexa knowledge vault."""
 
 from typing import Optional
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import Header
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 from pathlib import Path
+import logging
 
 from core.models import (
     IndexRequest,
@@ -72,6 +74,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configure basic structured logging
+logging.basicConfig(
+    level=os.getenv("CODEXA_LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("codexa")
+
+def verify_api_key(x_api_key: Optional[str] = Header(default=None)) -> None:
+    """Optional API key enforcement if CODEXA_API_KEY is set."""
+    required = os.getenv("CODEXA_API_KEY")
+    if not required:
+        return
+    if not x_api_key or x_api_key != required:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
 @app.get("/")
 async def root() -> dict[str, str]:
@@ -83,7 +99,7 @@ async def root() -> dict[str, str]:
     }
 
 
-@app.post("/index", response_model=IndexResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/index", response_model=IndexResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
 async def index_documents(request: IndexRequest) -> IndexResponse:
     """
     Index documents into the knowledge vault.
@@ -103,11 +119,19 @@ async def index_documents(request: IndexRequest) -> IndexResponse:
     indexed_ids = []
     failed_count = 0
 
+    # Request limits
+    max_files = int(os.getenv("CODEXA_MAX_FILES", "200"))
+    if len(request.file_paths) > max_files:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Too many files; limit is {max_files}",
+        )
+
     for file_path in request.file_paths:
         try:
             # Check if file exists
             if not os.path.exists(file_path):
-                print(f"File not found: {file_path}")
+                logger.warning("File not found during indexing", extra={"file_path": file_path})
                 failed_count += 1
                 continue
 
@@ -133,7 +157,7 @@ async def index_documents(request: IndexRequest) -> IndexResponse:
             indexed_ids.append(doc_id)
 
         except Exception as e:
-            print(f"Failed to index {file_path}: {str(e)}")
+            logger.exception("Failed to index file", extra={"file_path": file_path})
             failed_count += 1
 
     return IndexResponse(
@@ -143,7 +167,7 @@ async def index_documents(request: IndexRequest) -> IndexResponse:
     )
 
 
-@app.post("/index/directory", response_model=IndexResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/index/directory", response_model=IndexResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
 async def index_directory(request: IndexDirectoryRequest) -> IndexResponse:
     """
     Index all files in a directory recursively.
@@ -211,7 +235,7 @@ async def index_directory(request: IndexDirectoryRequest) -> IndexResponse:
             indexed_ids.append(doc_id)
 
         except Exception as e:
-            print(f"Failed to index {file_path}: {str(e)}")
+            logger.exception("Failed to index file in directory", extra={"file_path": file_path})
             failed_count += 1
 
     return IndexResponse(
@@ -221,7 +245,7 @@ async def index_directory(request: IndexDirectoryRequest) -> IndexResponse:
     )
 
 
-@app.post("/index/web", response_model=WebContentResponse, status_code=status.HTTP_201_CREATED)
+@app.post("/index/web", response_model=WebContentResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
 async def index_web_content(request: WebContentRequest) -> WebContentResponse:
     """
     Index web content from browser extension.
@@ -239,6 +263,13 @@ async def index_web_content(request: WebContentRequest) -> WebContentResponse:
         )
 
     try:
+        # Content size limit (MB)
+        max_mb = int(os.getenv("CODEXA_MAX_CONTENT_MB", "5"))
+        if len(request.content.encode("utf-8")) > max_mb * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Content too large; limit is {max_mb}MB",
+            )
         # Prepare metadata
         metadata = {
             "url": request.url,
@@ -275,7 +306,7 @@ async def index_web_content(request: WebContentRequest) -> WebContentResponse:
         )
 
 
-@app.post("/search", response_model=SearchResponse)
+@app.post("/search", response_model=SearchResponse, dependencies=[Depends(verify_api_key)])
 async def search_documents(request: SearchRequest) -> SearchResponse:
     """
     Search documents using semantic search.
@@ -292,16 +323,21 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
             detail="Service not initialized",
         )
 
-    # Build filter if file_type is specified
-    filter_metadata = None
+    # Build filters
+    filter_metadata = {}
     if request.file_type:
-        filter_metadata = {"file_type": request.file_type}
+        filter_metadata["file_type"] = request.file_type
+    if request.filters:
+        filter_metadata.update(request.filters)
+    if not filter_metadata:
+        filter_metadata = None
 
     # Perform search
     results = db.search(
         query=request.query,
         top_k=request.top_k,
         filter_metadata=filter_metadata,
+        offset=request.offset,
     )
 
     # Format results
@@ -315,7 +351,7 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
             try:
                 content = encryption.decrypt_from_base64(content)
             except Exception as e:
-                print(f"Failed to decrypt document: {str(e)}")
+                logger.exception("Failed to decrypt document", extra={"document_id": result.get("document_id")})
 
         search_results.append(
             SearchResult(
@@ -339,3 +375,32 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+@app.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_api_key)])
+async def delete_document(document_id: str) -> None:
+    """
+    Delete a document by its ID.
+    """
+    if db is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service not initialized",
+        )
+    try:
+        db.delete_document(document_id)
+    except Exception as e:
+        logger.exception("Failed to delete document", extra={"document_id": document_id})
+        # Surface as 404 if Chroma can't find it; otherwise generic error
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {document_id}",
+        )
+
+
+@app.post("/reindex", response_model=IndexResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_api_key)])
+async def reindex_documents(request: IndexRequest) -> IndexResponse:
+    """
+    Reindex one or more documents. This will parse and index content anew, creating new IDs.
+    """
+    return await index_documents(request)

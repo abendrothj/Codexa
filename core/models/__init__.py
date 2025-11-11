@@ -46,7 +46,11 @@ class SearchRequest(BaseModel):
 
     query: str = Field(..., description="Search query")
     top_k: int = Field(default=10, description="Number of results to return")
+    offset: int = Field(default=0, description="Number of results to skip (pagination)")
     file_type: Optional[str] = Field(None, description="Filter by file type")
+    filters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Additional metadata filters for search"
+    )
 
 
 class SearchResult(BaseModel):

@@ -5,6 +5,7 @@ import chromadb
 from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 import uuid
+import os
 
 
 class VectorDatabase:
@@ -29,7 +30,14 @@ class VectorDatabase:
         self.collection = self.client.get_or_create_collection(name=collection_name)
 
         # Initialize embedding model
-        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        model_name = os.getenv("CODEXA_MODEL_NAME", "all-MiniLM-L6-v2")
+        model_cache = os.getenv("CODEXA_MODEL_CACHE", None)
+        offline = os.getenv("CODEXA_OFFLINE", "false").lower() == "true"
+        self.embedding_model = SentenceTransformer(
+            model_name,
+            cache_folder=model_cache if model_cache else None,
+            local_files_only=offline,
+        )
 
     def _generate_id(self) -> str:
         """Generate a unique document ID."""
@@ -46,7 +54,11 @@ class VectorDatabase:
             Embedding vector
         """
         embedding = self.embedding_model.encode(text, convert_to_tensor=False)
-        return embedding.tolist()
+        # SentenceTransformers may return numpy array; ensure list[float]
+        try:
+            return embedding.tolist()  # type: ignore[attr-defined]
+        except AttributeError:
+            return list(map(float, embedding))  # fallback if already list
 
     def index_document(self, content: str, file_path: str, metadata: Dict[str, Any]) -> str:
         """
@@ -73,11 +85,15 @@ class VectorDatabase:
             else:
                 serialized_metadata[key] = str(value)
 
+        # Create embedding once for the document
+        embedding_vector = self._create_embedding(content)
+
         # Index the document
         self.collection.add(
             documents=[content],
             metadatas=[serialized_metadata],
             ids=[doc_id],
+            embeddings=[embedding_vector],
         )
 
         return doc_id
@@ -103,7 +119,11 @@ class VectorDatabase:
         return doc_ids
 
     def search(
-        self, query: str, top_k: int = 10, filter_metadata: Optional[Dict[str, Any]] = None
+        self,
+        query: str,
+        top_k: int = 10,
+        filter_metadata: Optional[Dict[str, Any]] = None,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """
         Perform semantic search.
@@ -116,24 +136,34 @@ class VectorDatabase:
         Returns:
             List of search results with content, metadata, and scores
         """
-        # Perform search
+        # Compute query embedding and perform search
+        query_embedding = self._create_embedding(query)
+        fetch = max(top_k + offset, 0) or top_k
         results = self.collection.query(
-            query_texts=[query],
-            n_results=top_k,
+            query_embeddings=[query_embedding],
+            n_results=fetch,
             where=filter_metadata,
         )
 
         # Format results
         formatted_results = []
         if results["ids"] and results["ids"][0]:
-            for idx, doc_id in enumerate(results["ids"][0]):
+            ids = results["ids"][0]
+            docs = results["documents"][0]
+            metas = results["metadatas"][0] if results["metadatas"] else [{}] * len(ids)
+            dists = results.get("distances", [[None] * len(ids)])[0]
+            # Apply offset slice
+            start = min(offset, len(ids))
+            end = min(offset + top_k, len(ids)) if top_k > 0 else len(ids)
+            for idx in range(start, end):
+                doc_id = ids[idx]
                 formatted_results.append(
                     {
                         "document_id": doc_id,
-                        "content": results["documents"][0][idx],
-                        "metadata": results["metadatas"][0][idx] if results["metadatas"] else {},
+                        "content": docs[idx],
+                        "metadata": metas[idx] if metas else {},
                         "score": (
-                            1.0 - results["distances"][0][idx] if results["distances"] else 0.0
+                            1.0 - dists[idx] if dists and dists[idx] is not None else 0.0
                         ),
                     }
                 )

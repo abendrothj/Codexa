@@ -10,6 +10,13 @@ First, start the FastAPI server:
 uvicorn core.api:app --reload
 ```
 
+To require an API key for all operations:
+
+```bash
+export CODEXA_API_KEY="your_secret_key"
+uvicorn core.api:app --reload
+```
+
 ### 2. Index Your Documents
 
 Use the desktop app or API to index your files:
@@ -32,6 +39,7 @@ Use the desktop app or API to index your files:
 ```bash
 curl -X POST "http://localhost:8000/index" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $CODEXA_API_KEY" \
   -d '{
     "file_paths": [
       "/path/to/your/docs/readme.md",
@@ -44,6 +52,7 @@ curl -X POST "http://localhost:8000/index" \
 ```bash
 curl -X POST "http://localhost:8000/index/directory" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $CODEXA_API_KEY" \
   -d '{
     "directory_path": "/path/to/your/project",
     "extensions": [".md", ".py"],
@@ -65,11 +74,16 @@ curl -X POST "http://localhost:8000/index/directory" \
 ```bash
 curl -X POST "http://localhost:8000/search" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $CODEXA_API_KEY" \
   -d '{
     "query": "your search query",
-    "top_k": 10
+    "top_k": 10,
+    "offset": 0,
+    "filters": {"file_type": "md"}
   }'
 ```
+
+Use `offset` for pagination and `filters` to narrow by metadata (e.g., `file_type`, `source`).
 
 ## Advanced Features
 
@@ -91,6 +105,12 @@ response = httpx.post(
 
 **Note**: Make sure to securely store your encryption key. Set `CODEXA_KEY_PATH` environment variable to use a persistent key.
 
+To enable AES-GCM (authenticated encryption), set:
+
+```bash
+export CODEXA_ENC_MODE=GCM
+```
+
 ### Filtering by File Type
 
 Search only specific file types:
@@ -101,7 +121,8 @@ response = httpx.post(
     json={
         "query": "authentication",
         "top_k": 5,
-        "file_type": "py"  # Only search Python files
+        "file_type": "py",  # Only search Python files
+        "offset": 0
     }
 )
 ```
@@ -114,6 +135,31 @@ Use the provided script to index entire directories:
 python scripts/batch_index.py /path/to/your/project
 ```
 
+### CLI
+
+Interact with the API from the terminal:
+
+```bash
+python scripts/cli.py --base-url http://localhost:8000 --api-key "$CODEXA_API_KEY" index /abs/path/file.md
+python scripts/cli.py --base-url http://localhost:8000 --api-key "$CODEXA_API_KEY" search --query "neural search" --top-k 5 --offset 0
+python scripts/cli.py --base-url http://localhost:8000 --api-key "$CODEXA_API_KEY" delete <document_id>
+python scripts/cli.py --base-url http://localhost:8000 --api-key "$CODEXA_API_KEY" index-dir /abs/path/project --extensions .md .py
+python scripts/cli.py --base-url http://localhost:8000 --api-key "$CODEXA_API_KEY" index-web --url "https://example.com" --title "Example" --content "# Markdown" --tag web --meta author=alice
+python scripts/cli.py --base-url http://localhost:8000 --api-key "$CODEXA_API_KEY" reindex /abs/path/file.md
+```
+
+Show help for available commands and options:
+
+```bash
+codexa --help
+codexa index --help
+codexa search --help
+codexa index-dir --help
+codexa index-web --help
+codexa reindex --help
+codexa delete --help
+```
+
 ### Index Web Documentation
 
 Save web pages and documentation via the browser extension (see [Browser Extension Design](browser_extension.md)):
@@ -122,6 +168,7 @@ Save web pages and documentation via the browser extension (see [Browser Extensi
 # Via API
 curl -X POST "http://localhost:8000/index/web" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $CODEXA_API_KEY" \
   -d '{
     "url": "https://fastapi.tiangolo.com/tutorial/",
     "title": "FastAPI Tutorial",
@@ -129,6 +176,8 @@ curl -X POST "http://localhost:8000/index/web" \
     "tags": ["fastapi", "tutorial", "web"]
   }'
 ```
+
+Default content size limit is 5MB; change with `CODEXA_MAX_CONTENT_MB`.
 
 ## Use Cases
 
@@ -176,3 +225,17 @@ Index tutorials, blog posts, and code examples. Search to find relevant learning
 - Reduce `top_k` value for faster results
 - Consider indexing fewer files
 - Check system resources (CPU, memory)
+
+## Configuration Reference
+
+- Model settings:
+  - `CODEXA_MODEL_NAME` (default: `all-MiniLM-L6-v2`)
+  - `CODEXA_MODEL_CACHE` (path to model cache)
+  - `CODEXA_OFFLINE=true` to use cache only
+- Limits:
+  - `CODEXA_MAX_FILES` (max files in `/index`, default 200)
+  - `CODEXA_MAX_CONTENT_MB` (max size for `/index/web`, default 5)
+- Auth:
+  - `CODEXA_API_KEY` to require `X-API-Key` header
+- Logging:
+  - `CODEXA_LOG_LEVEL` (e.g., DEBUG, INFO)

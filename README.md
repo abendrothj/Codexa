@@ -22,6 +22,10 @@ Codexa is a powerful local-first knowledge management system designed for develo
 - 💾 **Vector Database**: ChromaDB for efficient similarity search
 - 🔧 **Type-Safe**: Full type hints throughout the codebase
 - 📦 **Modular Design**: Easy to extend with new file parsers or features
+- 🔑 **Optional API Key**: Protect endpoints via `CODEXA_API_KEY`
+- 🧱 **Richer Search**: Pagination (`offset`) and metadata filters
+- 🛡️ **Encryption Modes**: AES-256-CBC (default) or AES-GCM (AEAD) via `CODEXA_ENC_MODE`
+- ⚙️ **Configurable Models**: `CODEXA_MODEL_NAME`, cache and offline mode
 
 ## Quick Start
 
@@ -55,6 +59,13 @@ uvicorn core.api:app --reload
 
 The API will be available at `http://localhost:8000`
 
+Optionally require an API key:
+
+```bash
+export CODEXA_API_KEY="your_secret_key"
+uvicorn core.api:app --reload
+```
+
 **2. Launch the Desktop GUI:**
 
 In a new terminal:
@@ -69,12 +80,14 @@ python desktop/__init__.py
 # Index files
 curl -X POST "http://localhost:8000/index" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $CODEXA_API_KEY" \
   -d '{"file_paths": ["/path/to/file.md"]}'
 
 # Search
 curl -X POST "http://localhost:8000/search" \
   -H "Content-Type: application/json" \
-  -d '{"query": "your search query", "top_k": 10}'
+  -H "X-API-Key: $CODEXA_API_KEY" \
+  -d '{"query": "your search query", "top_k": 10, "offset": 0}'
 ```
 
 ## Architecture
@@ -156,6 +169,21 @@ black core/ desktop/ scripts/
 mypy core/ --ignore-missing-imports
 ```
 
+### CLI
+
+After an editable install, use the CLI:
+
+```bash
+pip install -e .
+codexa index /abs/path/file.md
+codexa search --query "neural search" --top-k 5 --offset 0
+codexa delete <document_id>
+codexa index-dir /abs/path/project --extensions .md .py
+codexa index-web --url "https://example.com" --title "Example" --content "# Markdown" --tag web --meta author=alice
+codexa reindex /abs/path/file.md
+codexa --help
+```
+
 ## Use Cases
 
 - **Personal Knowledge Base**: Index your notes, documentation, and code snippets for quick retrieval
@@ -166,9 +194,16 @@ mypy core/ --ignore-missing-imports
 ## Security
 
 - All data processing happens locally on your machine
-- Optional AES-256 encryption for sensitive content
+- Optional AES-256 encryption for sensitive content (CBC by default; set `CODEXA_ENC_MODE=GCM` for AEAD)
 - No external API calls or data transmission
 - Encryption keys are never stored in the codebase
+
+## Configuration
+
+- Models: `CODEXA_MODEL_NAME`, `CODEXA_MODEL_CACHE`, `CODEXA_OFFLINE=true`
+- Auth: `CODEXA_API_KEY` (requires `X-API-Key` header)
+- Limits: `CODEXA_MAX_FILES`, `CODEXA_MAX_CONTENT_MB`
+- Logging: `CODEXA_LOG_LEVEL`
 
 ## Contributing
 

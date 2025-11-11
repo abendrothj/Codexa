@@ -6,6 +6,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 import base64
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+import os as _os
 
 
 class AESEncryption:
@@ -21,6 +23,8 @@ class AESEncryption:
         if len(key) != 32:
             raise ValueError("Key must be 32 bytes for AES-256")
         self.key = key
+        # mode can be CBC (default) or GCM (AEAD) via env
+        self.mode = _os.getenv("CODEXA_ENC_MODE", "CBC").upper()
 
     @staticmethod
     def generate_key() -> bytes:
@@ -88,6 +92,12 @@ class AESEncryption:
         Returns:
             Base64-encoded string containing IV and ciphertext
         """
+        if self.mode == "GCM":
+            iv = os.urandom(12)
+            aead = AESGCM(self.key)
+            ciphertext = aead.encrypt(iv, plaintext.encode(), None)
+            combined = iv + ciphertext  # ciphertext includes tag at the end
+            return base64.b64encode(combined).decode()
         iv, ciphertext = self.encrypt(plaintext)
         combined = iv + ciphertext
         return base64.b64encode(combined).decode()
@@ -103,6 +113,12 @@ class AESEncryption:
             Decrypted plaintext
         """
         combined = base64.b64decode(encoded.encode())
+        if self.mode == "GCM":
+            iv = combined[:12]
+            ciphertext = combined[12:]
+            aead = AESGCM(self.key)
+            plaintext = aead.decrypt(iv, ciphertext, None)
+            return plaintext.decode()
         iv = combined[:16]
         ciphertext = combined[16:]
         return self.decrypt(iv, ciphertext)

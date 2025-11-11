@@ -30,13 +30,13 @@ dependencies = [
     "PySide6>=6.6.1",
     "python-frontmatter>=1.1.0",
     "markdown>=3.5.2",
+    "httpx>=0.26.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.4",
     "pytest-asyncio>=0.23.3",
-    "httpx>=0.26.0",
     "black>=24.1.1",
     "mypy>=1.8.0",
     "types-markdown>=3.5.0.3",
@@ -51,3 +51,6 @@ python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[project.scripts]
+codexa = "scripts.cli:main"
