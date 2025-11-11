@@ -57,7 +57,10 @@ class IndexWorker(QThread):
     index_failed = Signal(str)
 
     def __init__(
-        self, file_paths: List[str], encrypt: bool = False, api_url: str = "http://localhost:8000"
+        self,
+        file_paths: List[str],
+        encrypt: bool = False,
+        api_url: str = "http://localhost:8000",
     ) -> None:
         """Initialize index worker."""
         super().__init__()
@@ -72,6 +75,47 @@ class IndexWorker(QThread):
                 response = client.post(
                     f"{self.api_url}/index",
                     json={"file_paths": self.file_paths, "encrypt": self.encrypt},
+                )
+                response.raise_for_status()
+                self.index_completed.emit(response.json())
+        except Exception as e:
+            self.index_failed.emit(str(e))
+
+
+class IndexDirectoryWorker(QThread):
+    """Worker thread for indexing a directory."""
+
+    index_completed = Signal(dict)
+    index_failed = Signal(str)
+
+    def __init__(
+        self,
+        directory_path: str,
+        extensions: List[str],
+        recursive: bool = True,
+        encrypt: bool = False,
+        api_url: str = "http://localhost:8000",
+    ) -> None:
+        """Initialize directory index worker."""
+        super().__init__()
+        self.directory_path = directory_path
+        self.extensions = extensions
+        self.recursive = recursive
+        self.encrypt = encrypt
+        self.api_url = api_url
+
+    def run(self) -> None:
+        """Execute directory indexing in background thread."""
+        try:
+            with httpx.Client(timeout=300.0) as client:
+                response = client.post(
+                    f"{self.api_url}/index/directory",
+                    json={
+                        "directory_path": self.directory_path,
+                        "extensions": self.extensions,
+                        "recursive": self.recursive,
+                        "encrypt": self.encrypt,
+                    },
                 )
                 response.raise_for_status()
                 self.index_completed.emit(response.json())
@@ -114,10 +158,13 @@ class CodexaDesktop(QMainWindow):
 
         # Index section
         index_layout = QHBoxLayout()
-        index_btn = QPushButton("Index Files")
-        index_btn.clicked.connect(self.index_files)
+        index_files_btn = QPushButton("Index Files")
+        index_files_btn.clicked.connect(self.index_files)
+        index_dir_btn = QPushButton("Index Directory")
+        index_dir_btn.clicked.connect(self.index_directory)
         index_layout.addWidget(QLabel("Actions:"))
-        index_layout.addWidget(index_btn)
+        index_layout.addWidget(index_files_btn)
+        index_layout.addWidget(index_dir_btn)
         index_layout.addStretch()
         layout.addLayout(index_layout)
 
@@ -182,6 +229,33 @@ class CodexaDesktop(QMainWindow):
 
         # Start indexing in background thread
         self.current_worker = IndexWorker(file_paths, encrypt=False, api_url=self.api_url)
+        self.current_worker.index_completed.connect(self.on_index_completed)
+        self.current_worker.index_failed.connect(self.on_index_failed)
+        self.current_worker.start()
+
+    def index_directory(self) -> None:
+        """Open directory dialog and index all files in directory."""
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select Directory to Index", "", QFileDialog.ShowDirsOnly
+        )
+
+        if not directory:
+            return
+
+        # Default extensions
+        extensions = [".py", ".md"]
+
+        self.statusBar().showMessage(f"Indexing directory: {directory}...")
+        self.search_button.setEnabled(False)
+
+        # Start directory indexing in background thread
+        self.current_worker = IndexDirectoryWorker(
+            directory_path=directory,
+            extensions=extensions,
+            recursive=True,
+            encrypt=False,
+            api_url=self.api_url,
+        )
         self.current_worker.index_completed.connect(self.on_index_completed)
         self.current_worker.index_failed.connect(self.on_index_failed)
         self.current_worker.start()

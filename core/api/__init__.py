@@ -9,10 +9,13 @@ from pathlib import Path
 
 from core.models import (
     IndexRequest,
+    IndexDirectoryRequest,
     IndexResponse,
     SearchRequest,
     SearchResponse,
     SearchResult,
+    WebContentRequest,
+    WebContentResponse,
 )
 from core.db import VectorDatabase
 from core.parsers import ParserRegistry
@@ -138,6 +141,138 @@ async def index_documents(request: IndexRequest) -> IndexResponse:
         failed_count=failed_count,
         document_ids=indexed_ids,
     )
+
+
+@app.post("/index/directory", response_model=IndexResponse, status_code=status.HTTP_201_CREATED)
+async def index_directory(request: IndexDirectoryRequest) -> IndexResponse:
+    """
+    Index all files in a directory recursively.
+
+    Args:
+        request: Directory index request
+
+    Returns:
+        Index response with indexed document IDs
+    """
+    if db is None or parser_registry is None or encryption is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service not initialized",
+        )
+
+    # Validate directory exists
+    if not os.path.isdir(request.directory_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Directory not found: {request.directory_path}",
+        )
+
+    # Find all files with specified extensions
+    from pathlib import Path
+
+    file_paths = []
+    path = Path(request.directory_path)
+
+    if request.recursive:
+        for ext in request.extensions:
+            file_paths.extend([str(f) for f in path.rglob(f"*{ext}")])
+    else:
+        for ext in request.extensions:
+            file_paths.extend([str(f) for f in path.glob(f"*{ext}")])
+
+    if not file_paths:
+        return IndexResponse(indexed_count=0, failed_count=0, document_ids=[])
+
+    # Index all found files
+    indexed_ids = []
+    failed_count = 0
+
+    for file_path in file_paths:
+        try:
+            # Parse the file
+            parsed = parser_registry.parse_file(file_path)
+
+            # Encrypt content if requested
+            content = parsed["content"]
+            if request.encrypt:
+                content = encryption.encrypt_to_base64(content)
+                parsed["metadata"]["encrypted"] = "true"
+
+            # Index the document
+            doc_id = db.index_document(
+                content=content,
+                file_path=file_path,
+                metadata={
+                    "file_type": parsed["file_type"],
+                    "file_name": parsed["file_name"],
+                    **parsed["metadata"],
+                },
+            )
+            indexed_ids.append(doc_id)
+
+        except Exception as e:
+            print(f"Failed to index {file_path}: {str(e)}")
+            failed_count += 1
+
+    return IndexResponse(
+        indexed_count=len(indexed_ids),
+        failed_count=failed_count,
+        document_ids=indexed_ids,
+    )
+
+
+@app.post("/index/web", response_model=WebContentResponse, status_code=status.HTTP_201_CREATED)
+async def index_web_content(request: WebContentRequest) -> WebContentResponse:
+    """
+    Index web content from browser extension.
+
+    Args:
+        request: Web content request with URL, title, and content
+
+    Returns:
+        Web content response with document ID
+    """
+    if db is None or encryption is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service not initialized",
+        )
+
+    try:
+        # Prepare metadata
+        metadata = {
+            "url": request.url,
+            "title": request.title,
+            "tags": request.tags,
+            "source": request.source,
+            "file_type": "web",
+            **request.metadata,
+        }
+
+        # Encrypt content if requested
+        content = request.content
+        if request.encrypt:
+            content = encryption.encrypt_to_base64(content)
+            metadata["encrypted"] = "true"
+
+        # Index the web content
+        doc_id = db.index_document(
+            content=content,
+            file_path=request.url,  # Use URL as file_path for web content
+            metadata=metadata,
+        )
+
+        return WebContentResponse(
+            document_id=doc_id,
+            status="indexed",
+            message="Web content indexed successfully",
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to index web content: {str(e)}",
+        )
 
 
 @app.post("/search", response_model=SearchResponse)

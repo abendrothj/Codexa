@@ -24,6 +24,15 @@ class IndexRequest(BaseModel):
     encrypt: bool = Field(default=False, description="Whether to encrypt content")
 
 
+class IndexDirectoryRequest(BaseModel):
+    """Request model for indexing a directory."""
+
+    directory_path: str = Field(..., description="Directory path to index")
+    extensions: List[str] = Field(default=[".md", ".py"], description="File extensions to index")
+    recursive: bool = Field(default=True, description="Whether to search recursively")
+    encrypt: bool = Field(default=False, description="Whether to encrypt content")
+
+
 class IndexResponse(BaseModel):
     """Response model for index operation."""
 
@@ -57,3 +66,23 @@ class SearchResponse(BaseModel):
     query: str = Field(..., description="Original query")
     results: List[SearchResult] = Field(..., description="Search results")
     total_results: int = Field(..., description="Total number of results")
+
+
+class WebContentRequest(BaseModel):
+    """Request model for indexing web content from browser extension."""
+
+    url: str = Field(..., description="Source URL of the content")
+    title: str = Field(..., description="Page title")
+    content: str = Field(..., description="Markdown content")
+    tags: List[str] = Field(default_factory=list, description="Content tags")
+    source: str = Field(default="web", description="Source identifier")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    encrypt: bool = Field(default=False, description="Whether to encrypt content")
+
+
+class WebContentResponse(BaseModel):
+    """Response model for web content indexing."""
+
+    document_id: str = Field(..., description="Indexed document ID")
+    status: str = Field(default="indexed", description="Status")
+    message: str = Field(..., description="Status message")

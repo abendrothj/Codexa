@@ -56,6 +56,91 @@ Index one or more documents into the knowledge vault.
 
 ---
 
+### Index Directory
+
+**POST** `/index/directory`
+
+Index all files in a directory recursively.
+
+**Request Body:**
+```json
+{
+  "directory_path": "/path/to/project",
+  "extensions": [".md", ".py"],
+  "recursive": true,
+  "encrypt": false
+}
+```
+
+**Parameters:**
+- `directory_path` (string, required): Path to the directory to index
+- `extensions` (array[string], optional): File extensions to index (default: [".md", ".py"])
+- `recursive` (boolean, optional): Whether to search subdirectories (default: true)
+- `encrypt` (boolean, optional): Whether to encrypt the content (default: false)
+
+**Response:**
+```json
+{
+  "indexed_count": 25,
+  "failed_count": 1,
+  "document_ids": ["uuid-1", "uuid-2", ...]
+}
+```
+
+**Status Codes:**
+- `201 Created`: Directory indexed successfully
+- `400 Bad Request`: Directory not found
+- `503 Service Unavailable`: Service not initialized
+
+---
+
+### Index Web Content
+
+**POST** `/index/web`
+
+Index web content from browser extension (HTML converted to Markdown).
+
+**Request Body:**
+```json
+{
+  "url": "https://example.com/article",
+  "title": "Article Title",
+  "content": "# Markdown content...",
+  "tags": ["web", "documentation"],
+  "source": "chrome-extension",
+  "metadata": {
+    "domain": "example.com",
+    "author": "John Doe"
+  },
+  "encrypt": false
+}
+```
+
+**Parameters:**
+- `url` (string, required): Source URL of the content
+- `title` (string, required): Page title
+- `content` (string, required): Markdown-formatted content
+- `tags` (array[string], optional): Content tags
+- `source` (string, optional): Source identifier (default: "web")
+- `metadata` (object, optional): Additional metadata
+- `encrypt` (boolean, optional): Whether to encrypt the content (default: false)
+
+**Response:**
+```json
+{
+  "document_id": "uuid-123",
+  "status": "indexed",
+  "message": "Web content indexed successfully"
+}
+```
+
+**Status Codes:**
+- `201 Created`: Web content indexed successfully
+- `500 Internal Server Error`: Failed to index content
+- `503 Service Unavailable`: Service not initialized
+
+---
+
 ### Search Documents
 
 **POST** `/search`

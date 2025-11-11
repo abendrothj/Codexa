@@ -107,6 +107,7 @@ curl -X POST "http://localhost:8000/search" \
 - [API Documentation](docs/api.md)
 - [Usage Guide](docs/usage.md)
 - [Architecture Overview](docs/architecture.md)
+- [Browser Extension Design](docs/browser_extension.md)
 
 ## Project Structure
 

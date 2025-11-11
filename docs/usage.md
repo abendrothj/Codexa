@@ -17,12 +17,18 @@ Use the desktop app or API to index your files:
 #### Using Desktop App
 
 1. Launch the desktop application
-2. Click "Index Files" button
-3. Select the `.md` or `.py` files you want to index
+2. **Option A - Index Individual Files:**
+   - Click "Index Files" button
+   - Select the `.md` or `.py` files you want to index
+3. **Option B - Index Entire Directory:**
+   - Click "Index Directory" button
+   - Select a directory containing your code/docs
+   - All `.md` and `.py` files will be indexed recursively
 4. Wait for indexing to complete
 
 #### Using API
 
+**Index specific files:**
 ```bash
 curl -X POST "http://localhost:8000/index" \
   -H "Content-Type: application/json" \
@@ -31,6 +37,17 @@ curl -X POST "http://localhost:8000/index" \
       "/path/to/your/docs/readme.md",
       "/path/to/your/code/main.py"
     ]
+  }'
+```
+
+**Index entire directory:**
+```bash
+curl -X POST "http://localhost:8000/index/directory" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "directory_path": "/path/to/your/project",
+    "extensions": [".md", ".py"],
+    "recursive": true
   }'
 ```
 
@@ -95,6 +112,22 @@ Use the provided script to index entire directories:
 
 ```bash
 python scripts/batch_index.py /path/to/your/project
+```
+
+### Index Web Documentation
+
+Save web pages and documentation via the browser extension (see [Browser Extension Design](browser_extension.md)):
+
+```bash
+# Via API
+curl -X POST "http://localhost:8000/index/web" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://fastapi.tiangolo.com/tutorial/",
+    "title": "FastAPI Tutorial",
+    "content": "# FastAPI Tutorial\n\nContent here...",
+    "tags": ["fastapi", "tutorial", "web"]
+  }'
 ```
 
 ## Use Cases
