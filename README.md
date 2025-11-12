@@ -26,6 +26,7 @@ Codexa is a powerful local-first knowledge management system designed for develo
 - 🧱 **Richer Search**: Pagination (`offset`) and metadata filters
 - 🛡️ **Encryption Modes**: AES-256-CBC (default) or AES-GCM (AEAD) via `CODEXA_ENC_MODE`
 - ⚙️ **Configurable Models**: `CODEXA_MODEL_NAME`, cache and offline mode
+- 🤖 **Local LLM (RAG)**: Generate intelligent answers from search results using local transformers models (optional)
 
 ## Quick Start
 
@@ -176,7 +177,8 @@ After an editable install, use the CLI:
 ```bash
 pip install -e .
 codexa index /abs/path/file.md
-codexa search --query "neural search" --top-k 5 --offset 0
+codexa search -q "neural search" --top-k 5 --offset 0
+codexa search -q "how does encryption work" --generate-answer  # Generate intelligent answer
 codexa delete <document_id>
 codexa index-dir /abs/path/project --extensions .md .py
 codexa index-web --url "https://example.com" --title "Example" --content "# Markdown" --tag web --meta author=alice
@@ -204,6 +206,7 @@ codexa --help
 - Auth: `CODEXA_API_KEY` (requires `X-API-Key` header)
 - Limits: `CODEXA_MAX_FILES`, `CODEXA_MAX_CONTENT_MB`
 - Logging: `CODEXA_LOG_LEVEL`
+- LLM (RAG): `CODEXA_ENABLE_LLM=true`, `CODEXA_LLM_MODEL` (default: `microsoft/phi-2`), `CODEXA_LLM_DEVICE` (auto/cpu/cuda/mps)
 
 ## Contributing
 

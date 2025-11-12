@@ -127,6 +127,48 @@ response = httpx.post(
 )
 ```
 
+### Intelligent Answers (RAG with Local LLM)
+
+Generate intelligent answers from search results using a local LLM:
+
+**1. Install LLM dependencies:**
+```bash
+pip install transformers torch
+# Or install with optional dependencies:
+pip install -e ".[llm]"
+```
+
+**2. Enable LLM in the API server:**
+```bash
+export CODEXA_ENABLE_LLM=true
+export CODEXA_LLM_MODEL=microsoft/phi-2  # Optional: default model
+export CODEXA_LLM_DEVICE=auto  # Optional: auto/cpu/cuda/mps
+uvicorn core.api:app --reload
+```
+
+**3. Use with API:**
+```python
+response = httpx.post(
+    "http://localhost:8000/search",
+    json={
+        "query": "how does encryption work in this codebase",
+        "top_k": 5,
+        "generate_answer": True  # Enable answer generation
+    }
+)
+data = response.json()
+print(data["answer"])  # Generated intelligent answer
+```
+
+**4. Use with CLI:**
+```bash
+codexa search -q "how does encryption work" --generate-answer
+```
+
+The LLM uses the top search results as context to generate a coherent answer. This is a RAG (Retrieval-Augmented Generation) approach that combines semantic search with local language model inference.
+
+**Note**: LLM features are optional. If not enabled or transformers/torch are not installed, the system will gracefully fall back to regular search without answers.
+
 ### Batch Indexing
 
 Use the provided script to index entire directories:

@@ -198,7 +198,8 @@ Perform semantic search over indexed documents.
   "file_type": "py",
   "filters": {
     "source": "web"
-  }
+  },
+  "generate_answer": false
 }
 ```
 
@@ -208,6 +209,7 @@ Perform semantic search over indexed documents.
 - `offset` (integer, optional): Skip N results (default: 0)
 - `file_type` (string, optional): Filter by file type (e.g., "py", "md")
 - `filters` (object, optional): Additional metadata filters
+- `generate_answer` (boolean, optional): Generate intelligent answer using local LLM (RAG). Requires `CODEXA_ENABLE_LLM=true` and transformers/torch installed (default: false)
 
 **Headers (optional):**
 - `X-API-Key`: Required if CODEXA_API_KEY is configured on the server
@@ -229,9 +231,13 @@ Perform semantic search over indexed documents.
       }
     }
   ],
-  "total_results": 1
+  "total_results": 1,
+  "answer": "Based on the indexed documents, authentication can be implemented using..."
 }
 ```
+
+**Response Fields:**
+- `answer` (string, optional): Generated intelligent answer when `generate_answer=true`. Only present if LLM is enabled and available.
 
 **Status Codes:**
 - `200 OK`: Search successful

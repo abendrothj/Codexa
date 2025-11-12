@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Local-first AI dev knowledge vault with semantic search"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Codexa Contributors"}
 ]
@@ -27,7 +27,7 @@ dependencies = [
     "chromadb>=0.4.22",
     "sentence-transformers>=2.3.1",
     "cryptography>=42.0.0",
-    "PySide6>=6.6.1",
+    "PySide6>=6.6.0,<7.0.0",
     "python-frontmatter>=1.1.0",
     "markdown>=3.5.2",
     "httpx>=0.26.0",
@@ -41,6 +41,10 @@ dev = [
     "mypy>=1.8.0",
     "types-markdown>=3.5.0.3",
 ]
+llm = [
+    "transformers>=4.30.0",
+    "torch>=2.0.0",
+]
 
 [tool.black]
 line-length = 100
@@ -51,6 +55,9 @@ python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.setuptools]
+packages = ["core", "desktop", "scripts"]
 
 [project.scripts]
 codexa = "scripts.cli:main"
